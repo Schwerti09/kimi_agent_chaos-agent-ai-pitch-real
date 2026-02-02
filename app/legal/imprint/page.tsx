@@ -1,0 +1,1 @@
+export default function Page(){return <div className='mx-auto max-w-3xl px-6 py-16'><h1 className='text-2xl font-semibold'>Imprint</h1><p className='mt-4 text-zinc-300'>Replace this with your legal imprint.</p></div>;}

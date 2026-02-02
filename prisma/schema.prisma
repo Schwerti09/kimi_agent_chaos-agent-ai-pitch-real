@@ -1,0 +1,91 @@
+generator client { provider = "prisma-client-js" }
+
+datasource db { provider = "sqlite" url = env("DATABASE_URL") }
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String?
+  role           Role     @default(ADMIN)
+  isActive       Boolean  @default(true)
+  lastLogin      DateTime?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stripeCustomerId String?
+  sessions       Session[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  country     String?  @default("EU")
+  industry    String?
+  complianceConfig Json @default("{}")
+  stripeCustomerId String?
+  users       User[]
+  subscription Subscription?
+  auditLogs    AuditLog[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Subscription {
+  id                   String @id @default(cuid())
+  organizationId       String @unique
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stripeSubscriptionId String? @unique
+  stripeCustomerId     String?
+  stripePriceId        String?
+  status               SubscriptionStatus @default(TRIALING)
+  tier                 Tier @default(STARTER)
+  currentPeriodStart   DateTime @default(now())
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Session {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User @relation(fields: [userId], references: [id])
+  eventType      EventType
+  severity       Severity @default(LOW)
+  endpoint       String?
+  method         String?
+  requestId      String? @unique
+  data           Json @default("{}")
+  maskedData     Json?
+  riskScore      Int @default(0)
+  isBlocked      Boolean @default(false)
+  actionTaken    ActionTaken @default(LOGGED)
+  detectedAt     DateTime @default(now())
+
+  @@index([organizationId, detectedAt])
+  @@index([eventType])
+  @@index([severity])
+  @@index([riskScore])
+}
+
+enum Role { USER ADMIN SUPER_ADMIN }
+enum SubscriptionStatus { ACTIVE PAST_DUE CANCELED TRIALING }
+enum Tier { STARTER PRO }
+enum EventType { API_CALL PROMPT_INJECTION DATA_EXFILTRATION COMPLIANCE_VIOLATION USER_ACTIVITY SYSTEM_ALERT }
+enum Severity { LOW MEDIUM HIGH CRITICAL }
+enum ActionTaken { LOGGED BLOCKED MASKED ALERTED }
